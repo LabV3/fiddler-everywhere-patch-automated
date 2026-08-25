@@ -417,6 +417,21 @@ jobs:
       - name: Rename main FE folder
         run: Rename-Item -Path "fe_app" -NewName "FE"
 
+      - name: Detect FE app out directory
+        run: |
+          $app_out_v1 = "FE/resources/app/out"
+          $app_out_v2 = "FE/resources/app.asar.unpacked/out"
+
+          if (Test-Path $app_out_v1) {
+            echo "FE_APP_OUT_DIR=$app_out_v1" | Out-File -Append -FilePath $env:GITHUB_ENV
+            Write-Host "Detected app out directory: $app_out_v1"
+          } elseif (Test-Path $app_out_v2) {
+            echo "FE_APP_OUT_DIR=$app_out_v2" | Out-File -Append -FilePath $env:GITHUB_ENV
+            Write-Host "Detected app out directory: $app_out_v2"
+          } else {
+            throw "Could not detect FE app out directory"
+          }
+
       - name: Patch fiddler.dll / libfiddler.dll
         run: |
           $original_fiddler = "FE/${{ needs.download-Yui-patch.outputs.Yui-fiddler-name }}"
@@ -440,7 +455,7 @@ jobs:
       - name: Copy Server Folder
         run: |
           $source_server_folder = "msojocs-patch/server/file"
-          $destination_server_folder = "FE/resources/app/out"
+          $destination_server_folder = $env:FE_APP_OUT_DIR
 
           if (Test-Path $source_server_folder) {
             Copy-Item -Path $source_server_folder -Destination $destination_server_folder -Recurse
@@ -452,7 +467,7 @@ jobs:
         if: startsWith(env.PATCH_LANGUAGE, 'Yes')
         run: |
           $translate_js = "msojocs-patch/server/translate.js"
-          $dest_translate = "FE/resources/app/out/translate.js"
+          $dest_translate = "$env:FE_APP_OUT_DIR/translate.js"
 
           if (Test-Path $translate_js) {
             Copy-Item -Path $translate_js -Destination $dest_translate -Force
@@ -476,7 +491,7 @@ jobs:
 
       - name: Set user credentials
         run: |
-          $source_json = "FE/resources/app/out/file/identity.getfiddler.com/oauth/token.json"
+          $source_json = "$env:FE_APP_OUT_DIR/file/identity.getfiddler.com/oauth/token.json"
           $main_content = Get-Content -Path $source_json -Raw | ConvertFrom-Json
 
           $main_content.user_info.email = $env:PATCH_USER_EMAIL
@@ -489,10 +504,10 @@ jobs:
 
       - name: Patch main.js to main.original.js
         run: |
-          $source_main = "FE/resources/app/out/main.js"
+          $source_main = "$env:FE_APP_OUT_DIR/main.js"
           $main_content = Get-Content -Path $source_main -Raw
 
-          $new_main = "FE/resources/app/out/main.original.js"
+          $new_main = "$env:FE_APP_OUT_DIR/main.original.js"
 
           $source_index = "msojocs-patch/server/index.js"
           $index_content = Get-Content -Path $source_index -Raw
